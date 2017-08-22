@@ -1,2 +1,1 @@
-def check_screen_count():
-    pass
+from checks import checkScreenCount, frameRateWarning
