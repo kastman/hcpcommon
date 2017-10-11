@@ -68,7 +68,9 @@ class WinRecorder(object):
     def genFnames(self, fname, n):
         base, ext = os.path.splitext(fname)
         n_digits = len(str(n))
-        fnames = ["file '{}{:0{n_digits}}{}'".format(base, i, ext, n_digits=n_digits) for i in range(1, n + 1)]
+        fnames = ["file '{}{:0{n_digits}}{}'".format(base, i, ext,
+                                                     n_digits=n_digits)
+                  for i in range(1, n + 1)]
         return fnames
 
     @classmethod
@@ -79,9 +81,13 @@ class WinRecorder(object):
     @classmethod
     def _save_sidebyside(cls, movies, fname, quality=35):
         cmdbase = ['ffmpeg']
-        for m in movies:
-            cmdbase.append('-i {}'.format(m.movie_fname))
-        cmdbase.append("-filter_complex '[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]' -map [vid] -c:v libx264 -crf {} -preset veryfast".format(quality))
+        for movie in movies:
+            cmdbase.append('-i {}'.format(movie.movie_fname))
+
+        join_option_str = ("-filter_complex '[0:v]pad=iw*2:ih[int];[int][1:v]"
+                           "overlay=W/2:0[vid]' -map [vid] -c:v libx264 "
+                           "-crf {} -preset veryfast".format(quality))
+        cmdbase.append(join_option_str)
         cmdbase.append(fname)
         cmd = ' '.join(cmdbase)
 
@@ -89,4 +95,5 @@ class WinRecorder(object):
         os.system(cmd)
 
         if movies[0]._cleanup and os.path.exists(fname):
-            [os.remove(m.movie_fname) for m in movies]
+            for movie in movies:
+                os.remove(movie.movie_fname)
