@@ -1,6 +1,7 @@
 import glob
 import os
 import numpy as np
+from subprocess import Popen, PIPE
 
 
 class WinRecorder(object):
@@ -13,6 +14,8 @@ class WinRecorder(object):
         self._cleanup = cleanup
         self.movie_fname = None
 
+        # print(win, win.name)
+
     def keyframe(self, buffer='back'):
         if self._record:
             self._keyframe(buffer=buffer)
@@ -22,9 +25,13 @@ class WinRecorder(object):
             thisStim.draw()  # Manually AutoDraw
         self._keyframes.append(self._win.getMovieFrame(buffer=buffer))
         self._keyframeTimes.append(self._clock.getTime())
+        # print('Saving keyframe for {}'.format(self._win.name))
+        # print('Window {} now has {} frames'.format(self._win.name,
+        #                                            len(self._win.movieFrames)))
 
     def save(self, fname='win-frame.png'):
         '''Write out screenshots.
+
            Call at the end of the task.
            Filename should include include extension; Psychopy's window capture
            will add frame indices automatically.'''
@@ -32,19 +39,22 @@ class WinRecorder(object):
             self.movie_fname = self._save(fname)
 
     def _save(self, fname):
+        print('Saving {} keyframes for {}'.format(
+            len(self._keyframes), self._win.name))
         self._win.saveMovieFrames(fname)
         stillbase, stillext = os.path.splitext(fname)
         demuxBase = stillbase + '_demux'
         demuxFname = demuxBase + '.txt'
         self._writeConcatDemuxFile(demuxFname, fname)
         video_fname = demuxBase + '.mov'
-        print('To demux and create video, run:')
-        cmd_pat = 'ffmpeg -f concat -i {} -vsync vfr -pix_fmt yuv420p {}'
-        cmd_args = demuxFname, video_fname
-        mergestillscmd = cmd_pat.format(*cmd_args)
-        print(mergestillscmd)
-        os.system(mergestillscmd)
-        if self._cleanup and os.path.exists(video_fname):  # Concat was successfull
+        # print('To demux and create video, run:')
+        cmd = ['ffmpeg', '-f', 'concat', '-i', demuxFname, '-vsync', 'vfr',
+               '-pix_fmt', 'yuv420p', video_fname]
+        # print(' '.join(cmd))
+        out = Popen(cmd)
+        out.communicate()
+        if self._cleanup and os.path.exists(
+                video_fname):  # Concat was successfull
             for f in glob.glob(stillbase + '*' + stillext):
                 os.remove(f)
             for f in glob.glob(stillbase + '*demux*.txt'):
@@ -63,14 +73,23 @@ class WinRecorder(object):
     def diffTimes(self, times):
         times = np.array(times)
         diffs = times[1:] - times[:-1]
+
+        # Add last time again for ffmpeg quirk that requires last frame to be
+        # listed twice.
+        np.append(diffs, diffs[-1])
         return diffs
 
     def genFnames(self, fname, n):
         base, ext = os.path.splitext(fname)
         n_digits = len(str(n))
-        fnames = ["file '{}{:0{n_digits}}{}'".format(base, i, ext,
+        fnames = ["file '{}{:0{n_digits}}{}'".format(base,
+                                                     i,
+                                                     ext,
                                                      n_digits=n_digits)
                   for i in range(1, n + 1)]
+
+        # Add the last frame a second time - ffmpeg quirk
+        fnames.append(fnames[-1])
         return fnames
 
     @classmethod
@@ -80,19 +99,20 @@ class WinRecorder(object):
 
     @classmethod
     def _save_sidebyside(cls, movies, fname, quality=35):
-        cmdbase = ['ffmpeg']
+        cmd = ['ffmpeg']
         for movie in movies:
-            cmdbase.append('-i {}'.format(movie.movie_fname))
+            cmd.extend(['-i', movie.movie_fname])
 
-        join_option_str = ("-filter_complex '[0:v]pad=iw*2:ih[int];[int][1:v]"
-                           "overlay=W/2:0[vid]' -map [vid] -c:v libx264 "
-                           "-crf {} -preset veryfast".format(quality))
-        cmdbase.append(join_option_str)
-        cmdbase.append(fname)
-        cmd = ' '.join(cmdbase)
+        movie_options = ["-filter_complex",
+                         "[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]",
+                         "-map", "[vid]", "-c:v", "libx264", "-crf",
+                         str(quality), "-preset", "veryfast"]
 
-        print(cmd)
-        os.system(cmd)
+        cmd.extend(movie_options + [fname])
+
+        # print(' '.join(cmd))
+        out = Popen(cmd, shell=False)
+        out.communicate()
 
         if movies[0]._cleanup and os.path.exists(fname):
             for movie in movies:
