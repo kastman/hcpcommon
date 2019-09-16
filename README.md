@@ -22,8 +22,8 @@ HCP Common Psychopy Utils
     hcpcommon.checkScreenCount()
 
     # Import order counterbalancing file:
-    order = 'A'
-    month = 1
+    order = 'A'  # Row Name, e.g. "H"
+    month = 'Month 1'  # Column Name to choose, e.g. 'Rep 3'
     order_filename = 'conditions/12order_counterbalance.csv'
     stimlistnum = hcpcommon.choose_stimlist(
       order, month, order_filename)
@@ -32,7 +32,7 @@ HCP Common Psychopy Utils
 
 ## Counterbalance Loading
 
-For the paradigm of differeing stim lists counterbalanced across returning months: assume you have a csv or excel formatted so that the months are listed across the top in columns and the orders are listed as rows:
+For the paradigm of differing stim lists counterbalanced across returning months: assume you have a csv or excel formatted so that the months are listed across the top in columns and the orders are listed as rows:
 
 |     | Month 1 | Month 2 | Month ... 12 |
 | --- | ------- | ------- | ------------ |
