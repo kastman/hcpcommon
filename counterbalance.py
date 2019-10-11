@@ -99,4 +99,5 @@ def validate_frame(df, order_id, col_id, expected_shape=(12, 12),
     # Check Row Id
     order_msg = '{} not found in rows: {}.'.format(order_id, list(
         df.index)) + 'Maybe check your spelling?'
-    assert order_id in df.index
+    assert order_id in df.index, 'Order {} not found in {}'.format(
+        order_id, df.index)
