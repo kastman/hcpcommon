@@ -1,5 +1,6 @@
 import pyglet
 from psychopy import gui, logging, core
+import numpy as np
 
 def checkScreenCount():
     '''Present a dialog if there are less than 2 screens present.'''
@@ -26,11 +27,11 @@ def buildScreenCountWarning():
     return dlg
 
 
-def frameRateWarning():
+def frameRateWarning(measuredFrameRate):
     dlg = gui.Dlg(title='Frame Rate Warning')
     dlg.addText('WARNING: Frame rate seems too high or too low.')
     dlg.addText('Press "OK" to continue or "Cancel" to stop.')
-    dlg.addFixedField('Measured Frame Rate', expInfo['frameRate'])
+    dlg.addFixedField('Measured Frame Rate', measuredFrameRate)
     dlg.addText('#'*40)
     dlg.addText('This may be caused by background processes or')
     dlg.addText('incorrect screen settings.')
@@ -42,3 +43,33 @@ def frameRateWarning():
     dlg.addText('4. Re-run the script and try again.')
     dlg.addText('')
     return dlg
+
+
+def checkRates(frameRateRange, statusTextStim, expInfo, win):
+    '''Check Screen Refresh Rates repeatedly and verify measruement.
+    Update expInfo in place'''
+    statusTextStim.text = 'Checking Screen Refresh - Please wait.'
+    statusTextStim.draw()
+    statusTextStim.win.flip()
+
+    rates = [expInfo['frameRate']]
+    for i in range(10):
+        rates.append(win.getActualFrameRate())
+    medianRate = np.median(rates)
+    logging.exp('Measured Framerates: %s' % rates)
+    if not (frameRateRange[0] < medianRate < frameRateRange[1]):
+        logging.exp('Median Rate (%.03f) still out of range' % medianRate)
+        dlg = frameRateWarning(medianRate)
+        dlg.show()
+        if not dlg.OK:
+            logging.exp('User Cancelled')
+            core.quit()  # user pressed cancel
+        else:
+            logging.exp('User continued anyway; assuming 60Hz')
+            # expInfo['frameRate'] = medianRate
+            expInfo['frameRate'] = 60.0  # Assume a frame rate of 60
+            expInfo['originalMedianFrameRate'] = medianRate
+    else:
+        logging.exp('Median Rate (%.03f) in acceptable range; continuing' %
+                    medianRate)
+        expInfo['frameRate'] = medianRate
